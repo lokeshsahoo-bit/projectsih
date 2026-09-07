@@ -13,6 +13,9 @@ function App() {
   const [scanStage, setScanStage] = useState(0);
   const [scanProgress, setScanProgress] = useState(0);
   const [scanComplete, setScanComplete] = useState(false);
+  const [backendResult, setBackendResult] = useState(null);
+  const [backendLoading, setBackendLoading] = useState(false);
+  const [backendError, setBackendError] = useState("");
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -161,8 +164,94 @@ const captureDocument = () => {
 
 const retakeDocument = () => {
   setCapturedImage(null);
+  setBackendResult(null);
+  setBackendError("");
   startCamera();
 };
+
+
+/* =========================
+   BACKEND AI ANALYSIS
+   ========================= */
+
+const analyzeDocumentWithBackend = async () => {
+
+  if (!capturedImage) {
+    alert("Please capture a document first.");
+    return;
+  }
+
+  setBackendLoading(true);
+  setBackendError("");
+  setBackendResult(null);
+
+  try {
+
+    const formData = new FormData();
+
+    const base64 = capturedImage.split(",")[1];
+
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+
+    const byteArray = new Uint8Array(byteNumbers);
+
+    const blob = new Blob(
+      [byteArray],
+      { type: "image/jpeg" }
+    );
+
+    formData.append(
+      "document",
+      blob,
+      "document.jpg"
+    );
+
+    const response = await fetch(
+      "http://127.0.0.1:8000/analyze",
+      {
+        method: "POST",
+        body: formData
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `Backend returned ${response.status}`
+      );
+    }
+
+    const result = await response.json();
+
+    console.log(
+      "GHOST SCAN AI RESULT:",
+      result
+    );
+
+    setBackendResult(result);
+
+  } catch (error) {
+
+    console.error(
+      "Backend analysis error:",
+      error
+    );
+
+    setBackendError(
+      "Unable to connect to Ghost Scan AI backend."
+    );
+
+  } finally {
+
+    setBackendLoading(false);
+
+  }
+};
+
 
 useEffect(() => {
   return () => {
@@ -178,10 +267,15 @@ useEffect(() => {
      ========================= */
 
   const startScanning = () => {
+
     stopCamera();
+
     setScanStage(0);
     setScanProgress(0);
     setScanComplete(false);
+    setBackendResult(null);
+    setBackendError("");
+
     setPage("scanning");
   };
 
@@ -333,13 +427,147 @@ useEffect(() => {
               </div>
 
               <div className="scan-demo-notice">
-                <span>DEMO MODE</span>
-                <p>
-                  Frontend simulation only. Real OCR, AI models, document databases and verification services will be connected later.
-                </p>
+                {backendError ? (
+                  <>
+                    <span>BACKEND ERROR</span>
+                    <p>{backendError}</p>
+                  </>
+                ) : backendResult ? (
+                  <>
+                    <span>AI BACKEND CONNECTED</span>
+                    <p>
+                      OCR, document verification, tamper analysis and
+                      risk scoring returned successfully from the Ghost
+                      Scan FastAPI backend.
+                    </p>
+                  </>
+                ) : backendLoading ? (
+                  <>
+                    <span>AI BACKEND PROCESSING</span>
+                    <p>
+                      Sending the captured document to the Ghost Scan
+                      FastAPI analysis pipeline.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <span>AI READY</span>
+                    <p>
+                      Frontend scan sequence complete. Start AI analysis
+                      to send the captured document to the FastAPI backend.
+                    </p>
+                  </>
+                )}
               </div>
             </div>
           </section>
+
+          {backendResult && (
+            <section
+              style={{
+                marginTop: "18px",
+                padding: "18px",
+                border: "1px solid rgba(69,230,163,.28)",
+                background: "rgba(5,25,22,.55)"
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: "20px",
+                  flexWrap: "wrap"
+                }}
+              >
+                <div>
+                  <span
+                    style={{
+                      color: "#45e6a3",
+                      fontFamily: "monospace",
+                      fontSize: "9px",
+                      letterSpacing: "1.5px"
+                    }}
+                  >
+                    BACKEND AI RESULT
+                  </span>
+                  <h2
+                    style={{
+                      margin: "8px 0 0",
+                      fontSize: "20px"
+                    }}
+                  >
+                    {backendResult.risk?.risk_level || "ANALYSIS COMPLETE"}
+                  </h2>
+                </div>
+
+                <div
+                  style={{
+                    fontFamily: "monospace",
+                    textAlign: "right"
+                  }}
+                >
+                  <span
+                    style={{
+                      color: "#6d8da0",
+                      fontSize: "9px",
+                      letterSpacing: "1px"
+                    }}
+                  >
+                    RISK SCORE
+                  </span>
+                  <strong
+                    style={{
+                      display: "block",
+                      marginTop: "5px",
+                      color: "#e4f4ff",
+                      fontSize: "28px"
+                    }}
+                  >
+                    {backendResult.risk?.risk_score ?? "N/A"}
+                  </strong>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  marginTop: "15px",
+                  display: "grid",
+                  gridTemplateColumns:
+                    "repeat(auto-fit,minmax(160px,1fr))",
+                  gap: "10px"
+                }}
+              >
+                <div className="core-card">
+                  <div className="core-card-content">
+                    <h3>OCR CONFIDENCE</h3>
+                    <p>
+                      {backendResult.ocr_confidence ?? "N/A"}%
+                    </p>
+                  </div>
+                </div>
+
+                <div className="core-card">
+                  <div className="core-card-content">
+                    <h3>TAMPERING</h3>
+                    <p>
+                      {backendResult.tampering?.tampering_detected
+                        ? "DETECTED"
+                        : "NOT DETECTED"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="core-card">
+                  <div className="core-card-content">
+                    <h3>DOCUMENT STATUS</h3>
+                    <p>
+                      {backendResult.verification?.status ?? "N/A"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
 
           <div className="scan-footer">
             <div>
@@ -352,9 +580,36 @@ useEffect(() => {
                 {scanComplete ? "ANALYSIS COMPLETE" : "RUNNING"}
               </strong>
             </div>
-            {scanComplete && (
-              <button className="scan-result-button" onClick={() => alert("Verification Result screen is the next frontend step.")}>
-                VIEW VERIFICATION RESULT →
+            {scanComplete && !backendResult && (
+              <button
+                className="scan-result-button"
+                onClick={analyzeDocumentWithBackend}
+                disabled={backendLoading}
+              >
+                {backendLoading
+                  ? "RUNNING GHOST SCAN AI..."
+                  : "RUN AI ANALYSIS →"}
+              </button>
+            )}
+
+            {backendResult && (
+              <button
+                className="scan-result-button"
+                onClick={() => {
+                  console.log(
+                    "FULL GHOST SCAN RESULT:",
+                    backendResult
+                  );
+                  alert(
+                    `AI ANALYSIS COMPLETE\n\nRisk Score: ${
+                      backendResult.risk?.risk_score ?? "N/A"
+                    }\nRisk Level: ${
+                      backendResult.risk?.risk_level ?? "N/A"
+                    }`
+                  );
+                }}
+              >
+                VIEW AI RESULT →
               </button>
             )}
           </div>
