@@ -1,18 +1,33 @@
-import easyocr
-
 from AI.extract_data import extract_information
 from AI.preprocess import preprocess_image
 from AI.verify_document import verify_document
 from AI.tampering import detect_tampering
-from AI.face_verification import verify_faces
 from AI.risk_score import calculate_risk_score
 
 
 # ==========================================================
-# CREATE OCR READER
+# LAZY OCR LOADER
 # ==========================================================
+# EasyOCR is a heavy dependency. Keep it out of application
+# startup and load it only when /analyze is actually called.
 
-reader = easyocr.Reader(['en'])
+_reader = None
+
+def get_ocr_reader():
+    global _reader
+
+    if _reader is None:
+        import easyocr
+
+        print("Loading EasyOCR model...")
+        _reader = easyocr.Reader(
+            ['en'],
+            gpu=False,
+            verbose=False
+        )
+        print("EasyOCR model loaded.")
+
+    return _reader
 
 
 # ==========================================================
@@ -55,6 +70,8 @@ def analyze_document(
     print(
         "Step 2: Reading text with OCR..."
     )
+
+    reader = get_ocr_reader()
 
     results = reader.readtext(
         processed_image
@@ -189,6 +206,10 @@ def analyze_document(
         print(
             "Running face verification..."
         )
+
+        # FaceNet/PyTorch is also heavy, so import it only when
+        # an actual second face image is supplied.
+        from AI.face_verification import verify_faces
 
         face_verification = verify_faces(
             image_path,

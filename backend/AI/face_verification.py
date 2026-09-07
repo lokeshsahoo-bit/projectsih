@@ -1,31 +1,38 @@
 from PIL import Image
-from facenet_pytorch import MTCNN, InceptionResnetV1
-import torch
-import torch.nn.functional as F
 
 
 # ==========================================================
-# CREATE FACE DETECTOR
+# LAZY FACE MODEL LOADER
 # ==========================================================
+# FaceNet/PyTorch can use a large amount of RAM. Do not load
+# these models when the API starts. Load them only when face
+# verification is explicitly requested.
 
-mtcnn = MTCNN(
-    image_size=160,
-    margin=20,
-    keep_all=False
-)
+_mtcnn = None
+_resnet = None
 
+def get_face_models():
+    global _mtcnn, _resnet
 
-# ==========================================================
-# CREATE FACE RECOGNITION MODEL
-# ==========================================================
+    if _mtcnn is None or _resnet is None:
+        from facenet_pytorch import MTCNN, InceptionResnetV1
 
-print("Loading face recognition model...")
+        print("Loading face recognition models...")
 
-resnet = InceptionResnetV1(
-    pretrained="vggface2"
-).eval()
+        _mtcnn = MTCNN(
+            image_size=160,
+            margin=20,
+            keep_all=False,
+            device="cpu"
+        )
 
-print("Face recognition model loaded.")
+        _resnet = InceptionResnetV1(
+            pretrained="vggface2"
+        ).eval()
+
+        print("Face recognition models loaded.")
+
+    return _mtcnn, _resnet
 
 
 # ==========================================================
@@ -60,6 +67,8 @@ def extract_face(image_path):
     image = load_image(
         image_path
     )
+
+    mtcnn, _ = get_face_models()
 
     face = mtcnn(
         image
@@ -98,6 +107,11 @@ def create_embedding(face):
 
     # Generate embedding.
 
+    import torch
+    import torch.nn.functional as F
+
+    _, resnet = get_face_models()
+
     with torch.no_grad():
 
         embedding = resnet(
@@ -128,6 +142,8 @@ def compare_faces(
     """
     Compare two face embeddings using cosine similarity.
     """
+
+    import torch.nn.functional as F
 
     similarity = F.cosine_similarity(
         passport_face,
