@@ -17,7 +17,9 @@ function App() {
   const [backendLoading, setBackendLoading] = useState(false);
   const [backendError, setBackendError] = useState("");
   const [uploadedFileName, setUploadedFileName] = useState("");
-
+  const [scanHistory, setScanHistory] = useState([]);
+const [historyLoading, setHistoryLoading] = useState(false);
+const [historyError, setHistoryError] = useState("");
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -50,7 +52,46 @@ function App() {
     setPassword("");
     setSelectedInput(null);
   };
+/* =========================
+   SCAN HISTORY
+   ========================= */
 
+const loadScanHistory = async () => {
+  setHistoryLoading(true);
+  setHistoryError("");
+
+  try {
+    const response = await fetch(
+      "https://sih-26188-backend.fastapicloud.dev/history"
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `Backend returned ${response.status}`
+      );
+    }
+
+    const data = await response.json();
+
+    setScanHistory(data);
+
+  } catch (error) {
+
+    console.error(
+      "History loading error:",
+      error
+    );
+
+    setHistoryError(
+      "Unable to load scan history."
+    );
+
+  } finally {
+
+    setHistoryLoading(false);
+
+  }
+};
 
   /* =========================
      START SCREENING
@@ -251,7 +292,7 @@ const analyzeDocumentWithBackend = async () => {
     );
 
     const response = await fetch(
-      "http://127.0.0.1:8000/analyze",
+      "https://sih-26188-backend.fastapicloud.dev/analyze",
       {
         method: "POST",
         body: formData
@@ -898,14 +939,23 @@ useEffect(() => {
 
 
             <button
-              className="dashboard-action"
-              onClick={startScreening}
-            >
-              + NEW SCREENING
-            </button>
+  className="dashboard-action"
+  onClick={startScreening}
+>
+  + NEW SCREENING
+</button>
 
-          </div>
+<button
+  className="dashboard-action"
+  onClick={() => {
+    setPage("history");
+    loadScanHistory();
+  }}
+>
+  SCAN HISTORY
+</button>
 
+</div>
 
           {/* SYSTEM STATUS */}
 
@@ -1074,7 +1124,189 @@ useEffect(() => {
       </div>
     );
   }
+/* =====================================================
+   SCAN HISTORY PAGE
+   ===================================================== */
 
+if (page === "history") {
+  return (
+    <div className="dashboard-page">
+
+      <DashboardHeader
+        onLogout={logout}
+      />
+
+      <main className="dashboard-main">
+
+        <div className="dashboard-title">
+
+          <div>
+
+            <span className="dashboard-eyebrow">
+              OFFICER CONSOLE // SCAN DATABASE
+            </span>
+
+            <h1>
+              Scan History
+            </h1>
+
+            <p>
+              Review previously processed documents
+              and verification results.
+            </p>
+
+          </div>
+
+          <button
+            className="dashboard-action"
+            onClick={() => setPage("dashboard")}
+          >
+            ← DASHBOARD
+          </button>
+
+        </div>
+
+
+        {historyLoading && (
+          <div className="dashboard-panel">
+            <h2>Loading scan history...</h2>
+          </div>
+        )}
+
+
+        {historyError && (
+          <div className="dashboard-panel">
+            <h2>{historyError}</h2>
+
+            <button
+              className="dashboard-action"
+              onClick={loadScanHistory}
+            >
+              RETRY
+            </button>
+          </div>
+        )}
+
+
+        {!historyLoading &&
+          !historyError &&
+          scanHistory.length === 0 && (
+            <div className="dashboard-panel">
+              <h2>No scan history available.</h2>
+            </div>
+          )}
+
+
+        {!historyLoading &&
+          !historyError &&
+          scanHistory.length > 0 && (
+
+            <section className="dashboard-panels">
+
+              <div className="dashboard-panel">
+
+                <div className="panel-title-row">
+
+                  <div>
+
+                    <span>
+                      DATABASE RECORDS
+                    </span>
+
+                    <h2>
+                      Recent Screenings
+                    </h2>
+
+                  </div>
+
+                  <button
+                    className="dashboard-action"
+                    onClick={loadScanHistory}
+                  >
+                    ↻ REFRESH
+                  </button>
+
+                </div>
+
+
+                {scanHistory.map((scan) => (
+
+                  <div
+                    key={scan.scan_id}
+                    className="activity-row"
+                  >
+
+                    <div>
+
+                      <strong>
+                        {scan.document_name ||
+                          "UNKNOWN DOCUMENT"}
+                      </strong>
+
+                      <span>
+                        {scan.document_number ||
+                          "NO DOCUMENT NUMBER"}
+                      </span>
+
+                    </div>
+
+
+                    <div>
+
+                      <span>
+                        STATUS
+                      </span>
+
+                      <strong>
+                        {scan.verification_status ||
+                          "N/A"}
+                      </strong>
+
+                    </div>
+
+
+                    <div>
+
+                      <span>
+                        RISK
+                      </span>
+
+                      <strong>
+                        {scan.risk_score ??
+                          "N/A"}
+                      </strong>
+
+                    </div>
+
+
+                    <div>
+
+                      <span>
+                        OCR
+                      </span>
+
+                      <strong>
+                        {scan.ocr_confidence ??
+                          "N/A"}%
+                      </strong>
+
+                    </div>
+
+                  </div>
+
+                ))}
+
+              </div>
+
+            </section>
+
+          )}
+
+      </main>
+
+    </div>
+  );
+}
 
   /* =====================================================
      DOCUMENT INTAKE
