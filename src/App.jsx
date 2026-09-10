@@ -211,18 +211,6 @@ function App() {
     // Live person photo is mandatory; document images may be uploaded as needed.
     closeIntake();
     setPage("scanning");
-    setScanProgress(0);
-    setScanStage(0);
-    setScanComplete(false);
-    setBackendResult(null);
-    setBackendError("");
-
-    setTimeout(() => {
-      scanningRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    }, 80);
   };
 
   const analyzeWithBackend = async () => {
