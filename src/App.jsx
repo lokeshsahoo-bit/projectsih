@@ -200,67 +200,92 @@ function App() {
     stopCamera();
     setIntakeOpen(false);
   };
+const beginScreening = () => {
+  if (!intakeFiles.livePhoto) {
+    setIntakeError("LIVE PERSON PHOTO is mandatory and must be captured first.");
+    setIntakeStep("live");
+    return;
+  }
 
-  const beginScreening = () => {
-    if (!intakeFiles.livePhoto) {
-      setIntakeError("LIVE PERSON PHOTO is mandatory and must be captured first.");
-      setIntakeStep("live");
-      return;
-    }
+  const primaryDocument = REQUIRED_DOCUMENTS
+    .map(({ key }) => intakeFiles[key])
+    .find(Boolean);
 
-    // Live person photo is mandatory; document images may be uploaded as needed.
-    closeIntake();
-    setPage("scanning");
-  };
+  if (!primaryDocument) {
+    setIntakeError("At least one identity document is required before screening.");
+    setIntakeStep("documents");
+    return;
+  }
 
-  const analyzeWithBackend = async () => {
-    if (!intakeFiles.livePhoto) {
-      setBackendError("Live person photo is required for analysis.");
-      return;
-    }
+  closeIntake();
+  setPage("scanning");
+};
 
-    const primaryDocument = REQUIRED_DOCUMENTS
-      .map(({ key }) => intakeFiles[key])
-      .find(Boolean);
+const analyzeWithBackend = async () => {
+  if (!intakeFiles.livePhoto) {
+    setBackendError("Live person photo is required for analysis.");
+    return;
+  }
 
-    setBackendLoading(true);
-    setBackendError("");
+  const primaryDocument = REQUIRED_DOCUMENTS
+    .map(({ key }) => intakeFiles[key])
+    .find(Boolean);
 
-    try {
-      const formData = new FormData();
-      if (primaryDocument) {
-        formData.append("document", primaryDocument);
+  if (!primaryDocument) {
+    setBackendError("No identity document was selected.");
+    return;
+  }
+
+  setBackendLoading(true);
+  setBackendError("");
+
+  try {
+    const formData = new FormData();
+
+    // Required backend field
+    formData.append("document", primaryDocument);
+
+    // Live person's face/photo
+    formData.append("face", intakeFiles.livePhoto);
+
+    // Additional files
+    formData.append("live_photo", intakeFiles.livePhoto);
+
+    REQUIRED_DOCUMENTS.forEach(({ key }) => {
+      if (intakeFiles[key]) {
+        formData.append(key, intakeFiles[key]);
       }
-      formData.append("face", intakeFiles.livePhoto);
+    });
 
-      // Send all supplied intake images when the backend supports them.
-      formData.append("live_photo", intakeFiles.livePhoto);
-      REQUIRED_DOCUMENTS.forEach(({ key }) => {
-        if (intakeFiles[key]) formData.append(key, intakeFiles[key]);
-      });
+    const response = await fetch(`${API_BASE}/analyze`, {
+      method: "POST",
+      body: formData,
+    });
 
-      const response = await fetch(`${API_BASE}/analyze`, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error(`Backend returned ${response.status}`);
-      }
-
-      const result = await response.json();
-      setBackendResult(result);
-      setLastRisk(result?.risk || null);
-    } catch (error) {
-      console.error("Backend analysis error:", error);
-      setBackendError(
-        "AI backend could not be reached. The frontend scan is complete, but no verified risk result was returned."
+    if (!response.ok) {
+      const errorBody = await response.text();
+      console.error("Backend error response:", errorBody);
+      throw new Error(
+        `Backend returned ${response.status}: ${errorBody}`
       );
-    } finally {
-      setBackendLoading(false);
     }
-  };
 
+    const result = await response.json();
+
+    console.log("Backend analysis result:", result);
+
+    setBackendResult(result);
+    setLastRisk(result?.risk || null);
+  } catch (error) {
+    console.error("Backend analysis error:", error);
+
+    setBackendError(
+      "AI backend could not be reached. The frontend scan is complete, but no verified risk result was returned."
+    );
+  } finally {
+    setBackendLoading(false);
+  }
+};
   useEffect(() => {
     if (page !== "scanning") return;
 
