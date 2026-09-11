@@ -377,9 +377,14 @@ const analyzeWithBackend = async () => {
     const text = JSON.stringify(root).toLowerCase();
 
 if (key === "FACE") {
-  if (face.match === true) return "PASS";
   if (face.second_face_detected === false) return "NOT PROVIDED";
-  if (face.match === false) return "FAIL";
+  if (face.match === true) return "PASS";
+  if (
+    face.passport_face_detected === true &&
+    face.second_face_detected === true
+  ) {
+    return "FAIL";
+  }
   return "REVIEW";
 }
     if (key === "PHOTO") {
