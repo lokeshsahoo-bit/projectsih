@@ -371,6 +371,7 @@ const analyzeWithBackend = async () => {
   const riskPercent = Math.max(0, Math.min(100, riskScore));
 
   const resultCheck = (key) => {
+console.log("RESULT CHECK DEBUG:", key, backendResult);
     const root = backendResult || {};
     const tamper = root.tampering || {};
     const face = root.face_verification || {};
