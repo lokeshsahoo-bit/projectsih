@@ -376,12 +376,12 @@ const analyzeWithBackend = async () => {
     const face = root.face_verification || {};
     const text = JSON.stringify(root).toLowerCase();
 
-    if (key === "FACE") {
-      if (face.match === true) return "PASS";
-      if (face.second_face_detected === false) return "NOT PROVIDED";
-      return "REVIEW";
-    }
-
+if (key === "FACE") {
+  if (face.match === true) return "PASS";
+  if (face.second_face_detected === false) return "NOT PROVIDED";
+  if (face.match === false) return "FAIL";
+  return "REVIEW";
+}
     if (key === "PHOTO") {
       return text.includes("photo") && text.includes("replace") ? "REVIEW" : "PASS";
     }
