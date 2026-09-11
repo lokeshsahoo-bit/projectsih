@@ -371,21 +371,20 @@ const analyzeWithBackend = async () => {
   const riskPercent = Math.max(0, Math.min(100, riskScore));
 
   const resultCheck = (key) => {
-console.log("RESULT CHECK DEBUG:", key, backendResult);
     const root = backendResult || {};
     const tamper = root.tampering || {};
     const face = root.face_verification || {};
     const text = JSON.stringify(root).toLowerCase();
 
 if (key === "FACE") {
-  if (face.second_face_detected === false) return "NOT PROVIDED";
-  if (face.match === true) return "PASS";
-  if (
-    face.passport_face_detected === true &&
-    face.second_face_detected === true
-  ) {
-    return "FAIL";
+  if (face.passport_face_detected && face.second_face_detected) {
+    return face.match === true ? "PASS" : "FAIL";
   }
+
+  if (face.second_face_detected === false) {
+    return "NOT PROVIDED";
+  }
+
   return "REVIEW";
 }
     if (key === "PHOTO") {
