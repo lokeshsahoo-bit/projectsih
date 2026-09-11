@@ -944,7 +944,15 @@ function RiskAssessment({
           </div>
 
           {CHECKS.map((check) => {
-            const status = backendResult ? resultCheck(check) : "PENDING";
+            const status =
+  check === "FACE" &&
+  backendResult?.face_verification?.passport_face_detected === true &&
+  backendResult?.face_verification?.second_face_detected === true &&
+  backendResult?.face_verification?.match === false
+    ? "FAIL"
+    : backendResult
+      ? resultCheck(check)
+      : "PENDING";
             const note = CHECK_NOTES[check];
             return (
               <div className="check-row" key={check}>
