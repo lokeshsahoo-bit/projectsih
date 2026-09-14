@@ -1012,3 +1012,5 @@ function StatCard({ label, value, note, tone = "", title }) {
 }
 
 export default App;
+
+// Vercel production rebuild
